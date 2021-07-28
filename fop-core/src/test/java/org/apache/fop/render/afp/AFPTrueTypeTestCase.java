@@ -224,7 +224,7 @@ public class AFPTrueTypeTestCase {
         PageObject po = new PageObject(new Factory(), "PAGE0001", 0, 0, 0, 0, 0);
         when(ds.getCurrentPage()).thenReturn(po);
 
-        AFPPainter afpPainter = new MyAFPPainter(afpDocumentHandler);
+        AFPPainter afpPainter = new MyAFPPainter(afpDocumentHandler, true);
         afpPainter.setFont("any", "normal", 400, null, null, Color.BLACK);
         afpPainter.drawText(0, 0, 0, 0, null, "test");
 
@@ -238,9 +238,50 @@ public class AFPTrueTypeTestCase {
                 sb.toString().contains("DATA PRESENTATION_TEXT AMB AMI SCFL TRN t TRN e TRN s TRN t"));
     }
 
-    class MyAFPPainter extends AFPPainter {
-        public MyAFPPainter(AFPDocumentHandler documentHandler) {
+    @Test
+    public void testAFPPainterWidths() throws IFException, IOException {
+        String s = getAFPPainterWidths(true);
+        Assert.assertTrue(s, s.contains("DATA PRESENTATION_TEXT AMB AMI 0 SCFL SVI TRN a AMI"
+                + " 9 TRN b AMI 29 TRN c AMI 59 TRN d AMI 99 TRN e AMI 149 TRN f AMI 209 TRN g AMI 24 TRN h AMI 105 TRN"
+                + " i AMI 196 TRN j AMI 42 TRN k AMI 153 TRN l AMI 19 TRN m AMI 151 TRN n AMI 38 TRN o AMI 190"));
+    }
+
+    @Test
+    public void testAFPPainterWidthsNoPositionByChar() throws IFException, IOException {
+        String s = getAFPPainterWidths(false);
+        Assert.assertTrue(s, s.contains("DATA PRESENTATION_TEXT AMB AMI 0 SCFL SVI TRN abcdefghijklmno"));
+    }
+
+    private String getAFPPainterWidths(boolean positionByChar) throws IFException, IOException {
+        AFPDocumentHandler afpDocumentHandler = mock(AFPDocumentHandler.class);
+        when(afpDocumentHandler.getPaintingState()).thenReturn(new AFPPaintingState());
+        when(afpDocumentHandler.getResourceManager()).thenReturn(new AFPResourceManager(null));
+
+        DataStream ds = mock(DataStream.class);
+        when(afpDocumentHandler.getDataStream()).thenReturn(ds);
+        PageObject po = new PageObject(new Factory(), "PAGE0001", 0, 0, 0, 0, 0);
+        when(ds.getCurrentPage()).thenReturn(po);
+
+        AFPPainter afpPainter = new MyAFPPainter(afpDocumentHandler, positionByChar);
+        afpPainter.setFont("any", "normal", 400, null, 12000, Color.BLACK);
+        afpPainter.drawText(0, 0, 0, 0, null, "abcdefghijklmno");
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        po.writeToStream(bos);
+        InputStream bis = new ByteArrayInputStream(bos.toByteArray());
+        StringBuilder sb = new StringBuilder();
+        AFPParser afpParser = new AFPParser(true);
+        afpParser.readWidths = true;
+        afpParser.read(bis, sb);
+        return sb.toString();
+    }
+
+    static class MyAFPPainter extends AFPPainter {
+        boolean positionByChar;
+
+        MyAFPPainter(AFPDocumentHandler documentHandler, boolean positionByChar) {
             super(documentHandler);
+            this.positionByChar = positionByChar;
         }
 
         protected FOUserAgent getUserAgent() {
@@ -251,10 +292,21 @@ public class AFPTrueTypeTestCase {
         protected FontInfo getFontInfo() {
             FontInfo f = new FontInfo();
             f.addFontProperties("any", FontTriplet.DEFAULT_FONT_TRIPLET);
-            MultiByteFont font = new MultiByteFont(null, EmbeddingMode.AUTO);
-            font.setWidthArray(new int[100]);
+            MultiByteFont font = new MultiByteFont(null, EmbeddingMode.AUTO) {
+                public void setWidthArray(int[] wds) {
+                    super.setWidthArray(wds);
+                    for (int i = 'a'; i <= 'z'; i++) {
+                        addPrivateUseMapping(i, i);
+                    }
+                }
+            };
+            int[] widths = new int[200];
+            for (int i = 0; i < widths.length; i++) {
+                widths[i] = 1000 + (i * 256);
+            }
+            font.setWidthArray(widths);
             f.addMetrics("any", new AFPFontConfig.AFPTrueTypeFont("", true,
-                    new FopCharacterSet("", "UTF-16BE", "", font, null, null), null, null, null));
+                    new FopCharacterSet("", "UTF-16BE", "", font, null, null), null, null, null, positionByChar));
             return f;
         }
     }

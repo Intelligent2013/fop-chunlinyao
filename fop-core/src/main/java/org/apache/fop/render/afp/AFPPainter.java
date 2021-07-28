@@ -70,7 +70,6 @@ import org.apache.fop.afp.ptoca.PtocaProducer;
 import org.apache.fop.afp.util.AFPResourceAccessor;
 import org.apache.fop.fonts.Font;
 import org.apache.fop.fonts.FontTriplet;
-import org.apache.fop.fonts.FontType;
 import org.apache.fop.fonts.Typeface;
 import org.apache.fop.render.ImageHandlerUtil;
 import org.apache.fop.render.RenderingContext;
@@ -915,7 +914,7 @@ public class AFPPainter extends AbstractIFPainter<AFPDocumentHandler> {
         final Font font;
         final AFPFont afpFont;
         final CharacterSet charSet;
-        final PresentationTextObject pto;
+        PresentationTextObject pto;
 
         private DefaultPtocaProducer(int x, int y,
                                       final int letterSpacing, final int wordSpacing, final int[][] dp,
@@ -960,7 +959,12 @@ public class AFPPainter extends AbstractIFPainter<AFPDocumentHandler> {
                     page.endPresentationObject();
                 }
                 pto = page.getPresentationTextObject();
-                pto.createControlSequences(this);
+                boolean success = pto.createControlSequences(this);
+                if (!success) {
+                    page.endPresentationObject();
+                    pto = page.getPresentationTextObject();
+                    pto.createControlSequences(this);
+                }
             } catch (IOException ioe) {
                 throw new IFException("I/O error in drawText()", ioe);
             }
@@ -1020,12 +1024,13 @@ public class AFPPainter extends AbstractIFPainter<AFPDocumentHandler> {
                 builder.setVariableSpaceCharacterIncrement(varSpaceCharacterIncrement);
 
                 boolean fixedSpaceMode = false;
-                int ttPos = p.x;
-
+                double ttPos = p.x;
+                boolean positionByChar = afpFont instanceof AFPFontConfig.AFPTrueTypeFont
+                        && ((AFPFontConfig.AFPTrueTypeFont) afpFont).isPositionByChar();
                 for (int i = 0; i < l; i++) {
                     char orgChar = text.charAt(i);
                     float glyphAdjust = 0;
-                    if (afpFont.getFontType() == FontType.TRUETYPE) {
+                    if (positionByChar) {
                         flushText(builder, sb, charSet);
                         fixedSpaceMode = true;
                         int charWidth = font.getCharWidth(orgChar);
@@ -1059,10 +1064,10 @@ public class AFPPainter extends AbstractIFPainter<AFPDocumentHandler> {
                         glyphAdjust += dx[i + 1];
                     }
 
-                    if (afpFont.getFontType() == FontType.TRUETYPE) {
+                    if (positionByChar) {
                         flushText(builder, sb, charSet);
-                        ttPos += Math.round(unitConv.mpt2units(glyphAdjust));
-                        builder.absoluteMoveInline(ttPos);
+                        ttPos += unitConv.mpt2units(glyphAdjust);
+                        builder.absoluteMoveInline((int) Math.round(ttPos));
                     } else if (glyphAdjust != 0) {
                         flushText(builder, sb, charSet);
                         int increment = Math.round(unitConv.mpt2units(glyphAdjust));

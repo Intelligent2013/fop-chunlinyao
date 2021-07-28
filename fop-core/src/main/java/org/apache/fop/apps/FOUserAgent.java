@@ -413,7 +413,7 @@ public class FOUserAgent {
         try {
             // Have to do this so we can resolve data URIs
             StreamSource src = new StreamSource(resourceResolver.getResource(uri));
-            src.setSystemId(uri);
+            src.setSystemId(getResourceResolver().getBaseURI().toASCIIString());
             return src;
         } catch (URISyntaxException use) {
             return null;
@@ -830,5 +830,9 @@ public class FOUserAgent {
         } else {
             return true;
         }
+    }
+
+    public boolean isTableBorderOverpaint() {
+        return factory.isTableBorderOverpaint();
     }
 }

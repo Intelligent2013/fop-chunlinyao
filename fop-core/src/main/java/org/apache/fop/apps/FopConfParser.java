@@ -56,6 +56,7 @@ import org.apache.fop.util.LogUtil;
 public class FopConfParser {
 
     private static final String PREFER_RENDERER = "prefer-renderer";
+    private static final String TABLE_BORDER_OVERPAINT = "table-border-overpaint";
 
     private final Log log = LogFactory.getLog(FopConfParser.class);
 
@@ -140,7 +141,7 @@ public class FopConfParser {
      */
     public FopConfParser(File fopConfFile, ResourceResolver resourceResolver)
             throws SAXException, IOException {
-        this(new FileInputStream(fopConfFile), fopConfFile.toURI(), resourceResolver);
+        this(new FileInputStream(fopConfFile), fopConfFile.getParentFile().toURI(), resourceResolver);
     }
 
     public FopConfParser(InputStream fopConfStream, URI baseURI, EnvironmentProfile enviro)
@@ -262,6 +263,15 @@ public class FopConfParser {
                              cfg.getChild(PREFER_RENDERER).getValueAsBoolean());
             } catch (ConfigurationException e) {
                 LogUtil.handleException(log, e, strict);
+            }
+        }
+
+        if (cfg.getChild(TABLE_BORDER_OVERPAINT, false) != null) {
+            try {
+                fopFactoryBuilder.setTableBorderOverpaint(
+                        cfg.getChild(TABLE_BORDER_OVERPAINT).getValueAsBoolean());
+            } catch (ConfigurationException e) {
+                LogUtil.handleException(log, e, false);
             }
         }
 
