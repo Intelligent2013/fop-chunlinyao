@@ -22,7 +22,7 @@ import org.apache.fop.complexscripts.fonts.GlyphDefinitionTable;
 
 public class ThaiScriptProcessor extends DefaultScriptProcessor {
     ThaiScriptProcessor(String script) {
-        super(script);
+        super(script, false);
     }
 
     protected boolean isReorderedMark(GlyphDefinitionTable gdef, int[] glyphs, int[] unscaledWidths, int index) {
